@@ -7,4 +7,4 @@ profile = "black"
 lines_after_imports = 2
 
 [tool.doit]
-backend = "json"
+backend = "sqlite3"

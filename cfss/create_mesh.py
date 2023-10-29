@@ -1,54 +1,56 @@
-import vtkmodules.vtkRenderingOpenGL2
-from vtkmodules.vtkFiltersCore import vtkWindowedSincPolyDataFilter, vtkQuadricDecimation, vtkPolyDataNormals
+import argparse
+import sys
+
+from utils import write_mesh
+from vtkmodules.vtkFiltersCore import (
+    vtkPolyDataNormals,
+    vtkQuadricDecimation,
+    vtkWindowedSincPolyDataFilter,
+)
 from vtkmodules.vtkFiltersGeneral import vtkDiscreteMarchingCubes
-from vtkmodules.vtkIOImage import (
-    vtkMetaImageReader, )
-from vtkmodules.vtkIOXML import vtkXMLPolyDataWriter
-from pathlib import Path
+from vtkmodules.vtkIOImage import vtkMetaImageReader
 
-with open('filenames.txt') as f:
-    filenames = [l.rstrip() for l in f.readlines()]
 
-indir = Path('fast_marching')
-for outdir, reduction in [('mesh', .95), ('mesh_fine', .90)]:
-    outdir = Path(outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
-    for fn in filenames:
-        print(fn, reduction)
-        reader = vtkMetaImageReader()
-        reader.SetFileName(f'./fast_marching/{fn}.mha')
-        reader.Update()
-        discrete = vtkDiscreteMarchingCubes()
-        discrete.SetInputData(reader.GetOutput())
-        # discrete.GenerateValues(n, 1, n)
-        discrete.SetValue(0, 1)
+def main():
+    parser = argparse.ArgumentParser(description='Fast marching (level set).')
+    parser.add_argument('input', help='Input segmentation filename', metavar='<input>')
+    parser.add_argument('output', help='Output vtp filename', metavar='<output>')
+    parser.add_argument('--reduction', help='Target reduction rate. default: %(default)s', default=0.95)
+    args = parser.parse_args()
 
-        smoothing_iterations = 15
-        pass_band = 0.001
-        feature_angle = 120.0
+    reader = vtkMetaImageReader()
+    reader.SetFileName(args.input)
+    reader.Update()
+    discrete = vtkDiscreteMarchingCubes()
+    discrete.SetInputData(reader.GetOutput())
+    discrete.SetValue(0, 1)
 
-        smoother = vtkWindowedSincPolyDataFilter()
-        smoother.SetInputConnection(discrete.GetOutputPort())
-        smoother.SetNumberOfIterations(smoothing_iterations)
-        smoother.BoundarySmoothingOff()
-        smoother.FeatureEdgeSmoothingOff()
-        smoother.SetFeatureAngle(feature_angle)
-        smoother.SetPassBand(pass_band)
-        smoother.NonManifoldSmoothingOn()
-        smoother.NormalizeCoordinatesOn()
-        smoother.Update()
+    smoothing_iterations = 15
+    pass_band = 0.001
+    feature_angle = 120.0
 
-        decimate = vtkQuadricDecimation()
-        decimate.SetTargetReduction(reduction)
-        decimate.SetInputData(smoother.GetOutput())
-        decimate.Update()
+    smoother = vtkWindowedSincPolyDataFilter()
+    smoother.SetInputConnection(discrete.GetOutputPort())
+    smoother.SetNumberOfIterations(smoothing_iterations)
+    smoother.BoundarySmoothingOff()
+    smoother.FeatureEdgeSmoothingOff()
+    smoother.SetFeatureAngle(feature_angle)
+    smoother.SetPassBand(pass_band)
+    smoother.NonManifoldSmoothingOn()
+    smoother.NormalizeCoordinatesOn()
+    smoother.Update()
 
-        normals = vtkPolyDataNormals()
-        normals.SetInputData(decimate.GetOutput())
-        normals.Update()
+    decimate = vtkQuadricDecimation()
+    decimate.SetTargetReduction(args.reduction)
+    decimate.SetInputData(smoother.GetOutput())
+    decimate.Update()
 
-        outname = outdir / f'{fn}.vtp'
-        writer = vtkXMLPolyDataWriter()
-        writer.SetInputData(normals.GetOutput())
-        writer.SetFileName(str(outname))
-        writer.Update()
+    normals = vtkPolyDataNormals()
+    normals.SetInputData(decimate.GetOutput())
+    normals.Update()
+
+    write_mesh(args.output, normals.GetOutput())
+
+
+if __name__ == '__main__':
+    sys.exit(main())
