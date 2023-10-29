@@ -45,7 +45,7 @@ def main():
     timeThreshold = 100
 
     seedValue = 0
-    for x, y, z in itertools.product([0, 1, 2], [0, 1, 2], [0, 1, 2]):
+    for x, y, z in itertools.product([0, 2], [0, 2], [0, 2]):
         if x == 1 and y == 1 and z == 1:
             continue
         trialPoint = (int(bbox[x][0]), int(bbox[y][1]), int(bbox[z][2]), seedValue)

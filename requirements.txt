@@ -1,3 +1,7 @@
 connected-components-3d
 vtk
 logzero
+doit
+simpleitk
+probreg
+git+https://github.com/ykszk/szkmipy.git

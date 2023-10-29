@@ -3,6 +3,8 @@ import sys
 
 from logzero import logger
 from probreg import cpd
+from probreg import filterreg
+from probreg import transformation
 from utils import read_mesh, write_mesh
 from vtkmodules.util.numpy_support import numpy_to_vtk, vtk_to_numpy
 
@@ -22,16 +24,25 @@ def main():
     src_points = vtk_to_numpy(source.GetPoints().GetData()).copy()
     print(tgt_points.shape, src_points.shape)
 
-    logger.info('register: affine')
-    tf_param, _, _ = cpd.registration_cpd(src_points, tgt_points, maxiter=50, tf_type_name='affine')
-    logger.info('done')
-    tfed_src = tf_param.transform(src_points.copy())
+    if True:
+        logger.info('register: affine')
+        tf_param, _, _ = cpd.registration_cpd(src_points, tgt_points, maxiter=100, tf_type_name='affine')
+        logger.info('done')
+        tfed_src = tf_param.transform(src_points.copy())
 
-    logger.info('register: nonrigid')
-    tf_param2, _, _ = cpd.registration_cpd(tfed_src, tgt_points, maxiter=100, tf_type_name='nonrigid', lmd=0.1)
-    logger.info('done')
+        logger.info('register: nonrigid')
+        tf_param2, _, _ = cpd.registration_cpd(tfed_src, tgt_points, maxiter=200, tf_type_name='nonrigid', lmd=0.1)
+        logger.info('done')
 
-    tfed_src2 = tf_param2.transform(tfed_src.copy())
+        tfed_src2 = tf_param2.transform(tfed_src.copy())
+    else:
+        logger.info('register: deformable kinematic model')
+        ws = transformation.DeformableKinematicModel.SkinningWeight(tgt_points.shape[0])
+        reg = filterreg.DeformableKinematicFilterReg(src_points, ws, 0.01)
+        tf_param, _, _ = reg.registration(tgt_points)
+        tfed_src2 = tf_param.transform(src_points.copy())
+        logger.info('done')
+
     pts = source.GetPoints()
     tfed_pts = numpy_to_vtk(tfed_src2)
     pts.SetData(tfed_pts)

@@ -9,7 +9,7 @@ from szkmipy import mhd
 from szkmipy import boundingbox as bb
 from vtkmodules.vtkIOXML import vtkXMLPolyDataReader, vtkXMLPolyDataWriter
 from vtkmodules.vtkCommonDataModel import vtkPolyData
-
+import shutil
 
 def read_mesh(filename: str) -> vtkPolyData:
     reader = vtkXMLPolyDataReader()
@@ -72,6 +72,17 @@ def remove_bed(input_filename, output=None, mask=None):
         logger.debug('Save output')
         mhd.write(output, vol, h)
 
+def del_dirs(exec: bool, ds: list):
+    if exec:
+        print('Deleting directories...')
+        for d in ds:
+            print(d)
+            shutil.rmtree(d)
+    else:
+        print('This is a dryrun. Following directories are listed for deletion...')
+        for d in ds:
+            print(' -',d)
+        print('Execute command with `--exec` option to actually execute the deletion.')
 
 def main():
     parser = argparse.ArgumentParser(description='CFDB utilities.')

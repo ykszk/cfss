@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
+from cfss import utils
 
 
 DOIT_CONFIG = {
-    'default_tasks': ['default'],
+    # 'default_tasks': ['default'],
     'verbosity': 2,
 }
 
@@ -41,7 +42,8 @@ def task_levelset():
     for data_id in id_list:
         infn = SEG_DIR / f'{data_id}.nii.gz'
         outfn = LEVELSET_OUTDIR / f'{data_id}.mha'
-        yield {'name': data_id, 'actions': [f'python {script} {infn} {outfn}'], 'file_dep': [infn], 'targets': [outfn]}
+        yield {'name': data_id, 'actions': [f'python {script} {infn} {outfn}'], 'file_dep': [infn], 'targets': [outfn],
+            'clean': True}
 
 
 MESH_OUTDIR = OUT_DIR / 'mesh'
@@ -57,7 +59,8 @@ def task_mesh():
     for data_id in id_list:
         infn = LEVELSET_OUTDIR / f'{data_id}.mha'
         outfn = MESH_OUTDIR / f'{data_id}.vtp'
-        yield {'name': data_id, 'actions': [f'python {script} {infn} {outfn}'], 'file_dep': [infn], 'targets': [outfn]}
+        yield {'name': data_id, 'actions': [f'python {script} {infn} {outfn}'], 'file_dep': [infn], 'targets': [outfn],
+            'clean': True}
 
 
 REG_OUTDIR = OUT_DIR / 'register'
@@ -69,13 +72,26 @@ def task_register():
     '''
     script = SRC_DIR / 'pcl_registration.py'
     srcfn = MESH_OUTDIR / f'{id_list[0]}.vtp'
+    REG_OUTDIR.mkdir(exist_ok=True, parents=True)
     for data_id in id_list[1:]:
         tgtfn = MESH_OUTDIR / f'{data_id}.vtp'
         outfn = REG_OUTDIR / f'{data_id}.vtp'
-        print(f'python {script} {srcfn} {tgtfn} {outfn}')
         yield {
             'name': data_id,
             'actions': [f'python {script} {srcfn} {tgtfn} {outfn}'],
             'file_dep': [srcfn, tgtfn],
             'targets': [outfn],
+            'clean': True,
         }
+
+# def task_delete():
+#     '''
+#     Cleanup artifacts
+#     '''
+#     ds = [LEVELSET_OUTDIR, MESH_OUTDIR, REG_OUTDIR]
+#     return {'actions':[(utils.del_dirs, [ds])],
+#             'params':[{'name':'exec',
+#                        'long':'exec',
+#                        'type': bool,
+#                        'default': False}],
+#             }
