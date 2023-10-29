@@ -1,8 +1,8 @@
 import argparse
 import sys
-from pathlib import Path
 
 from logzero import logger
+from probreg import cpd
 from utils import read_mesh, write_mesh
 from vtkmodules.util.numpy_support import numpy_to_vtk, vtk_to_numpy
 
