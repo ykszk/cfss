@@ -1,26 +1,22 @@
-# noinspection PyUnresolvedReferences
-import vtkmodules.vtkInteractionStyle
+import argparse
 
-# noinspection PyUnresolvedReferences
 import vtkmodules.vtkRenderingOpenGL2
 from landmark import load_landmarks, locate_landmarks
+from logzero import logger
 from utils import read_mesh, write_mesh
 from vtkmodules.vtkCommonColor import vtkNamedColors
 from vtkmodules.vtkCommonCore import vtkPoints, vtkStringArray
-from vtkmodules.vtkCommonDataModel import vtkPointLocator, vtkPolyData
+from vtkmodules.vtkCommonDataModel import vtkPolyData
 from vtkmodules.vtkFiltersSources import vtkSphereSource
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
 from vtkmodules.vtkRenderingCore import (
     vtkActor,
     vtkActor2D,
-    vtkDataSetMapper,
     vtkGlyph3DMapper,
     vtkPolyDataMapper,
     vtkRenderer,
     vtkRenderWindow,
     vtkRenderWindowInteractor,
-    vtkTextMapper,
-    vtkTextProperty,
 )
 from vtkmodules.vtkRenderingLabel import vtkLabeledDataMapper
 
@@ -30,11 +26,25 @@ from vtkmodules.vtkRenderingLabel import vtkLabeledDataMapper
 
 
 def main():
-    mesh = read_mesh('../result/mesh/CHUH0001.vtp')
-    landmarks = load_landmarks('../data/landmarks/CHUH0001.mrk.json')
+    parser = argparse.ArgumentParser(description='Show lanrmark points on mesh.')
+    parser.add_argument('mesh', help='Mesh vtp filename')
+    parser.add_argument('landmark', help='Lanrmark .mrk.json filename')
+    parser.add_argument(
+        '--target',
+        help='Optional mesh to show lanrmark points on. <mesh> is used by default. points in <mesh> and <target> should be registered.',
+    )
+
+    args = parser.parse_args()
+
+    logger.info('Load %s', args.mesh)
+    mesh = read_mesh(args.mesh)
+    logger.info('Load %s', args.landmark)
+    landmarks = load_landmarks(args.landmark)
     landmark_ids = locate_landmarks(mesh, landmarks)
     vtk_points = vtkPoints()
     vtk_points.Resize(len(landmark_ids))
+    if args.target:
+        mesh = read_mesh(args.target)
     for lid in landmark_ids:
         vtk_points.InsertNextPoint(mesh.GetPoint(lid))
     landmark_poly = vtkPolyData()
