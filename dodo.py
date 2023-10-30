@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 from cfss import utils
 
 
@@ -13,6 +14,9 @@ ID_LIST_FILENAME = os.environ.get('ID_LIST_FILENAME', 'cfss/filenames.txt')
 SEG_DIR = Path(os.environ.get('SEG_DIR', 'data/manual_segmentation'))
 OUT_DIR = Path(os.environ.get('OUT_DIR', 'result'))
 SRC_DIR = Path(__file__).parent / 'cfss'
+
+REF_ID = os.environ.get('REF_ID', '')  # optional
+
 
 with open(ID_LIST_FILENAME) as f:
     id_list = [l.rstrip() for l in f.readlines()]
@@ -42,11 +46,17 @@ def task_levelset():
     for data_id in id_list:
         infn = SEG_DIR / f'{data_id}.nii.gz'
         outfn = LEVELSET_OUTDIR / f'{data_id}.mha'
-        yield {'name': data_id, 'actions': [f'python {script} {infn} {outfn}'], 'file_dep': [infn], 'targets': [outfn],
-            'clean': True}
+        yield {
+            'name': data_id,
+            'actions': [f'python {script} {infn} {outfn}'],
+            'file_dep': [infn],
+            'targets': [outfn],
+            'clean': True,
+        }
 
 
 MESH_OUTDIR = OUT_DIR / 'mesh'
+FINE_MESH_OUTDIR = OUT_DIR / 'mesh_fine'
 
 
 def task_mesh():
@@ -54,13 +64,19 @@ def task_mesh():
     Create mesh
     '''
     script = SRC_DIR / 'create_mesh.py'
-    MESH_OUTDIR.mkdir(exist_ok=True, parents=True)
+    for outdir, reduction in [(MESH_OUTDIR, 0.99), (FINE_MESH_OUTDIR, 0.95)]:
+        outdir.mkdir(exist_ok=True, parents=True)
 
-    for data_id in id_list:
-        infn = LEVELSET_OUTDIR / f'{data_id}.mha'
-        outfn = MESH_OUTDIR / f'{data_id}.vtp'
-        yield {'name': data_id, 'actions': [f'python {script} {infn} {outfn}'], 'file_dep': [infn], 'targets': [outfn],
-            'clean': True}
+        for data_id in id_list:
+            infn = LEVELSET_OUTDIR / f'{data_id}.mha'
+            outfn = outdir / f'{data_id}.vtp'
+            yield {
+                'name': f'{data_id}-{outdir.name}',
+                'actions': [f'python {script} {infn} {outfn} --reduction {reduction}'],
+                'file_dep': [infn],
+                'targets': [outfn],
+                'clean': True,
+            }
 
 
 REG_OUTDIR = OUT_DIR / 'register'
@@ -71,10 +87,16 @@ def task_register():
     Register meshes
     '''
     script = SRC_DIR / 'pcl_registration.py'
-    srcfn = MESH_OUTDIR / f'{id_list[0]}.vtp'
+    if REF_ID == '':
+        srcfn = MESH_OUTDIR / f'{id_list[0]}.vtp'
+        target_list = id_list[1:]
+    else:  # reference id is specified
+        srcfn = MESH_OUTDIR / f'{REF_ID}.vtp'
+        target_list = id_list.copy()
+        target_list.remove(REF_ID)
     REG_OUTDIR.mkdir(exist_ok=True, parents=True)
-    for data_id in id_list[1:]:
-        tgtfn = MESH_OUTDIR / f'{data_id}.vtp'
+    for data_id in target_list:
+        tgtfn = FINE_MESH_OUTDIR / f'{data_id}.vtp'
         outfn = REG_OUTDIR / f'{data_id}.vtp'
         yield {
             'name': data_id,
@@ -83,6 +105,7 @@ def task_register():
             'targets': [outfn],
             'clean': True,
         }
+
 
 # def task_delete():
 #     '''

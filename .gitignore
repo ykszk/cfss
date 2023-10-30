@@ -2,6 +2,9 @@ data/
 result/
 .doit*
 
+tmp*
+dev*
+
 *.vtp
 *.mhd
 *.mha
