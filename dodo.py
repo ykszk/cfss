@@ -12,14 +12,21 @@ DOIT_CONFIG = {
 
 ID_LIST_FILENAME = os.environ.get('ID_LIST_FILENAME', 'cfss/filenames.txt')
 SEG_DIR = Path(os.environ.get('SEG_DIR', 'data/manual_segmentation'))
+LANDMARK_DIR = Path(os.environ.get('LANDMARK_DIR', 'data/landmarks'))
 OUT_DIR = Path(os.environ.get('OUT_DIR', 'result'))
 SRC_DIR = Path(__file__).parent / 'cfss'
 
 REF_ID = os.environ.get('REF_ID', '')  # optional
 
-
 with open(ID_LIST_FILENAME) as f:
     id_list = [l.rstrip() for l in f.readlines()]
+
+if REF_ID == '':
+    REF_ID = id_list[0]
+    target_list = id_list[1:]
+else:  # reference id is specified
+    target_list = id_list.copy()
+    target_list.remove(REF_ID)
 
 
 def task_default():
@@ -64,7 +71,7 @@ def task_mesh():
     Create mesh
     '''
     script = SRC_DIR / 'create_mesh.py'
-    for outdir, reduction in [(MESH_OUTDIR, 0.99), (FINE_MESH_OUTDIR, 0.95)]:
+    for outdir, reduction in [(MESH_OUTDIR, 0.95), (FINE_MESH_OUTDIR, 0.80)]:
         outdir.mkdir(exist_ok=True, parents=True)
 
         for data_id in id_list:
@@ -87,13 +94,7 @@ def task_register():
     Register meshes
     '''
     script = SRC_DIR / 'pcl_registration.py'
-    if REF_ID == '':
-        srcfn = MESH_OUTDIR / f'{id_list[0]}.vtp'
-        target_list = id_list[1:]
-    else:  # reference id is specified
-        srcfn = MESH_OUTDIR / f'{REF_ID}.vtp'
-        target_list = id_list.copy()
-        target_list.remove(REF_ID)
+    srcfn = MESH_OUTDIR / f'{REF_ID}.vtp'
     REG_OUTDIR.mkdir(exist_ok=True, parents=True)
     for data_id in target_list:
         tgtfn = FINE_MESH_OUTDIR / f'{data_id}.vtp'
@@ -107,14 +108,14 @@ def task_register():
         }
 
 
-# def task_delete():
-#     '''
-#     Cleanup artifacts
-#     '''
-#     ds = [LEVELSET_OUTDIR, MESH_OUTDIR, REG_OUTDIR]
-#     return {'actions':[(utils.del_dirs, [ds])],
-#             'params':[{'name':'exec',
-#                        'long':'exec',
-#                        'type': bool,
-#                        'default': False}],
-#             }
+def task_show_landmarks():
+    '''
+    Show landmark points. Landmark data (.mrk.json craeted using 3d slicer) is required for the reference mesh.
+    '''
+    script = SRC_DIR / 'qt_show_landmarks.py'
+    meshfn = MESH_OUTDIR / f'{REF_ID}.vtp'
+    lmfn = LANDMARK_DIR / f'{REF_ID}.mrk.json'
+    return {
+        'actions': [f'python {script} {meshfn} {lmfn}'],
+        # 'file_dep': [meshfn],
+    }
