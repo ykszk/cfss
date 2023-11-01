@@ -14,7 +14,7 @@ from vtkmodules.vtkIOImage import vtkMetaImageReader
 def main():
     parser = argparse.ArgumentParser(description='Fast marching (level set).')
     parser.add_argument('input', help='Input segmentation filename', metavar='<input>')
-    parser.add_argument('output', help='Output vtp filename', metavar='<output>')
+    parser.add_argument('output', help='Output vtp/xml filename', metavar='<output>')
     parser.add_argument('--reduction', help='Target reduction rate. default: %(default)s', type=float, default=0.95)
     args = parser.parse_args()
 
@@ -42,7 +42,7 @@ def main():
 
     decimate = vtkQuadricDecimation()
     decimate.SetTargetReduction(args.reduction)
-    decimate.SetInputData(smoother.GetOutput())
+    decimate.SetInputConnection(smoother.GetOutputPort())
     decimate.Update()
 
     normals = vtkPolyDataNormals()
