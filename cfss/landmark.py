@@ -35,7 +35,7 @@ def load_landmarks(filename: Union[str, Path]) -> Landmarks:
 
 def locate_landmarks(mesh: vtkPolyData, landmarks: Landmarks) -> List[int]:
     '''
-    Find closest point of lanrmarks on the mesh
+    Find closest point of lanrmarks on the mesh.
 
     return: point ids
     '''

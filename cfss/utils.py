@@ -11,6 +11,7 @@ from scipy import ndimage
 from szkmipy import boundingbox as bb
 from szkmipy import mhd
 from vtkmodules.vtkCommonDataModel import vtkPolyData
+from vtkmodules.vtkFiltersCore import vtkPolyDataNormals
 from vtkmodules.vtkIOLegacy import vtkDataWriter, vtkPolyDataReader, vtkPolyDataWriter
 from vtkmodules.vtkIOXML import vtkXMLPolyDataReader, vtkXMLPolyDataWriter
 
@@ -42,6 +43,14 @@ def write_mesh(filename: str, mesh):
     writer.Update()
 
 
+def calculate_normals(mesh: vtkPolyData) -> vtkPolyData:
+    normals = vtkPolyDataNormals()
+    normals.SetInputData(mesh)
+    normals.SplittingOff()
+    normals.Update()
+    return normals.GetOutput()
+
+
 def segment_body(vol):
     iterations = 3
     body = vol > 0
@@ -65,6 +74,9 @@ def segment_body(vol):
 def remove_bed(input_filename, output=None, mask=None):
     logger.debug('Load input image')
     vol, h = mhd.read(input_filename)
+    if vol.dtype != np.int16:
+        logger.info('Skip (not int16 image): %s', input_filename)
+        return
     body, dilated = segment_body(vol)
     min_value, max_value = -1000, 2000
     vol = np.clip(vol, min_value, max_value)
