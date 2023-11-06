@@ -1,6 +1,19 @@
-# noinspection PyUnresolvedReferences
-import vtkmodules.vtkRenderingOpenGL2
-from utils import read_mesh
+import argparse
+import sys
+
+import PyQt5
+import vtk
+
+# import vtkmodules.vtkRenderingOpenGL2
+from landmark import load_landmarks, locate_landmarks
+from logzero import logger
+from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QWidget
+from utils import read_mesh, write_mesh
+
+# from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 from vtkmodules.vtkCommonColor import vtkNamedColors
 from vtkmodules.vtkCommonCore import vtkCommand, vtkIdTypeArray
 from vtkmodules.vtkCommonDataModel import (
@@ -100,45 +113,66 @@ class HoverCallback:
             self.iren.GetRenderWindow().Render()
 
 
-def main():
-    colors = vtkNamedColors()
+class MainWindow(QtWidgets.QMainWindow):
+    def __init__(self, parent=None):
+        QtWidgets.QMainWindow.__init__(self, parent)
 
-    mesh = read_mesh('../result/ssm/ssm.vtk')
+        self.frame = QtWidgets.QWidget()
 
-    mapper = vtkPolyDataMapper()
-    mapper.SetInputData(mesh)
+        self.vl = QtWidgets.QVBoxLayout()
+        self.vtkWidget = QVTKRenderWindowInteractor(self.frame)
+        self.vl.addWidget(self.vtkWidget)
 
-    actor = vtkActor()
-    actor.GetProperty().SetColor(colors.GetColor3d('lightyellow'))
-    actor.GetProperty().SetRepresentationToWireframe()
-    actor.SetMapper(mapper)
+        colors = vtkNamedColors()
 
-    renderer = vtkRenderer()
-    ren_win = vtkRenderWindow()
-    ren_win.AddRenderer(renderer)
-    ren_win.SetWindowName('PointPicking')
-    iren = vtkRenderWindowInteractor()
-    iren.SetRenderWindow(ren_win)
+        mesh = read_mesh('../result/ssm/ssm.vtk')
 
-    renderer.AddActor(actor)
-    renderer.SetBackground(colors.GetColor3d('AliceBlue'))
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputData(mesh)
 
-    callback = HoverCallback(mesh, iren)
+        actor = vtkActor()
+        actor.GetProperty().SetColor(colors.GetColor3d('lightyellow'))
+        actor.GetProperty().SetRepresentationToWireframe()
+        actor.SetMapper(mapper)
+        self.actor = actor
 
-    style = vtkInteractorStyleTrackballCamera()
-    iren.SetInteractorStyle(style)
+        renderer = vtkRenderer()
+        ren_win = self.vtkWidget.GetRenderWindow()
+        ren_win.AddRenderer(renderer)
+        ren_win.SetWindowName('PointPicking')
+        iren = self.vtkWidget.GetRenderWindow().GetInteractor()
+        iren.SetRenderWindow(ren_win)
 
-    hw = vtkHoverWidget()
-    hw.SetInteractor(iren)
-    hw.SetTimerDuration(5)  # Time (ms) required to trigger a hover event
-    hw.AddObserver(vtkCommand.TimerEvent, callback)  # Start of hover
-    hw.AddObserver(vtkCommand.EndInteractionEvent, callback)  # Hover ended (mouse moved)
+        renderer.AddActor(actor)
+        renderer.SetBackground(colors.GetColor3d('AliceBlue'))
+        self.ren = renderer
 
-    ren_win.Render()
-    hw.On()
-    iren.Initialize()
-    iren.Start()
+        callback = HoverCallback(mesh, iren)
+
+        style = vtkInteractorStyleTrackballCamera()
+        iren.SetInteractorStyle(style)
+
+        hw = vtkHoverWidget()
+        hw.SetInteractor(iren)
+        hw.SetTimerDuration(5)  # Time (ms) required to trigger a hover event
+        hw.AddObserver(vtkCommand.TimerEvent, callback)  # Start of hover
+        hw.AddObserver(vtkCommand.EndInteractionEvent, callback)  # Hover ended (mouse moved)
+        hw.On()
+        self.hw = hw
+
+        self.ren.ResetCamera()
+
+        self.frame.setLayout(self.vl)
+        self.setCentralWidget(self.frame)
+
+        self.show()
+        iren.Initialize()
+        iren.Start()
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv)
+
+    window = MainWindow()
+
+    sys.exit(app.exec_())
