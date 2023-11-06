@@ -8,7 +8,7 @@ from vtkmodules.vtkFiltersCore import (
     vtkWindowedSincPolyDataFilter,
 )
 from vtkmodules.vtkFiltersGeneral import vtkDiscreteMarchingCubes
-from vtkmodules.vtkIOImage import vtkMetaImageReader
+from vtkmodules.vtkIOImage import vtkMetaImageReader, vtkNIFTIImageReader
 
 
 def main():
@@ -18,7 +18,10 @@ def main():
     parser.add_argument('--reduction', help='Target reduction rate. default: %(default)s', type=float, default=0.95)
     args = parser.parse_args()
 
-    reader = vtkMetaImageReader()
+    if args.input.endswith('.nii.gz'):
+        reader = vtkNIFTIImageReader()
+    else:
+        reader = vtkMetaImageReader()
     reader.SetFileName(args.input)
     reader.Update()
     discrete = vtkDiscreteMarchingCubes()
