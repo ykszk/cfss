@@ -1,34 +1,35 @@
 # noinspection PyUnresolvedReferences
 import vtkmodules.vtkRenderingOpenGL2
+from utils import read_mesh
 from vtkmodules.vtkCommonColor import vtkNamedColors
-from vtkmodules.vtkCommonCore import vtkIdTypeArray
+from vtkmodules.vtkCommonCore import vtkCommand, vtkIdTypeArray
 from vtkmodules.vtkCommonDataModel import (
     vtkSelection,
     vtkSelectionNode,
     vtkUnstructuredGrid,
 )
-from vtkmodules.vtkFiltersCore import vtkGlyph3D, vtkTriangleFilter
+from vtkmodules.vtkFiltersCore import vtkGlyph3D
 from vtkmodules.vtkFiltersExtraction import vtkExtractSelection
-from vtkmodules.vtkFiltersSources import vtkPlaneSource, vtkSphereSource
+from vtkmodules.vtkFiltersSources import vtkSphereSource
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
+from vtkmodules.vtkInteractionWidgets import vtkHoverWidget
 from vtkmodules.vtkRenderingCore import (
     vtkActor,
-    vtkCellPicker,
     vtkDataSetMapper,
     vtkHardwarePicker,
-    vtkPointPicker,
     vtkPolyDataMapper,
     vtkRenderer,
     vtkRenderWindow,
     vtkRenderWindowInteractor,
-    vtkSelectVisiblePoints,
 )
 
 
-# Catch mouse events
-class MouseInteractorStyle(vtkInteractorStyleTrackballCamera):
-    def __init__(self, data):
-        self.AddObserver('LeftButtonPressEvent', self.left_button_press_event)
+# https://github.com/pyvista/pyvista/discussions/4781
+
+
+class HoverCallback:
+    def __init__(self, data, iren: vtkRenderWindowInteractor):
+        self.iren = iren
         self.data = data
         self.selected_mapper = vtkDataSetMapper()
         self.selected_actor = vtkActor()
@@ -38,66 +39,68 @@ class MouseInteractorStyle(vtkInteractorStyleTrackballCamera):
         self.source.SetThetaResolution(11)
         self.source.SetRadius(2)
 
-    def left_button_press_event(self, obj, event):
+        ids = vtkIdTypeArray()
+        ids.SetNumberOfComponents(1)
+        ids.SetNumberOfValues(1)
+        self.ids = ids
+
+        selection_node = vtkSelectionNode()
+        selection_node.SetFieldType(vtkSelectionNode.POINT)
+        selection_node.SetContentType(vtkSelectionNode.INDICES)
+        selection_node.SetSelectionList(ids)
+
+        selection = vtkSelection()
+        selection.AddNode(selection_node)
+
+        extract_selection = vtkExtractSelection()
+        extract_selection.SetInputData(0, self.data)
+        extract_selection.SetInputData(1, selection)
+        self.extract_selection = extract_selection
+
+        # In selection
+        selected = vtkUnstructuredGrid()
+        selected.ShallowCopy(extract_selection.GetOutput())
+        self.selected = selected
+
+        glyph3D = vtkGlyph3D()
+        glyph3D.SetSourceConnection(self.source.GetOutputPort())
+        glyph3D.SetInputData(selected)
+        self.glyph3D = glyph3D
+
         colors = vtkNamedColors()
 
-        # Get the location of the click (in window coordinates)
-        pos = self.GetInteractor().GetEventPosition()
+        self.selected_mapper.SetInputConnection(glyph3D.GetOutputPort())
+        self.selected_actor.SetMapper(self.selected_mapper)
+        self.selected_actor.GetProperty().SetColor(colors.GetColor3d('Red'))
 
-        # picker = vtkCellPicker()
+        self.iren.GetRenderWindow().GetRenderers().GetFirstRenderer().AddActor(self.selected_actor)
+
         picker = vtkHardwarePicker()
         picker.SnapToMeshPointOn()
-        # picker.UseCellsOn()
-        # picker.SetTolerance(0.01)
+        picker.SetPixelTolerance(10)
+        self.picker = picker
 
-        # Pick from this location.
-        picker.Pick(pos[0], pos[1], 0, self.GetDefaultRenderer())
+    def __call__(self, _widget, event_name):
+        pos = self.iren.GetEventPosition()
 
-        world_position = picker.GetPickPosition()
+        picker = self.picker
+        picker.Pick(pos[0], pos[1], 0, self.iren.GetRenderWindow().GetRenderers().GetFirstRenderer())
 
-        if picker.GetPointId() != -1:
-            print(f'Point id is: {picker.GetPointId()}')
-            # print(f'Pick position is: ({world_position[0]:.6g}, {world_position[1]:.6g}, {world_position[2]:.6g})')
+        if picker.GetPointId() != -1:  # and not picker.GetNormalFlipped():
+            # print(picker.GetPointId(), end=' ', flush=True)
 
-            ids = vtkIdTypeArray()
-            ids.SetNumberOfComponents(1)
-            ids.InsertNextValue(picker.GetPointId())
-
-            selection_node = vtkSelectionNode()
-            selection_node.SetFieldType(vtkSelectionNode.POINT)
-            selection_node.SetContentType(vtkSelectionNode.INDICES)
-            selection_node.SetSelectionList(ids)
-
-            selection = vtkSelection()
-            selection.AddNode(selection_node)
-
-            extract_selection = vtkExtractSelection()
-            extract_selection.SetInputData(0, self.data)
-            extract_selection.SetInputData(1, selection)
-            extract_selection.Update()
+            self.ids.SetValue(0, picker.GetPointId())
+            self.ids.Modified()
+            self.extract_selection.Update()
 
             # In selection
-            selected = vtkUnstructuredGrid()
-            selected.ShallowCopy(extract_selection.GetOutput())
+            self.selected.ShallowCopy(self.extract_selection.GetOutput())
+            # self.selected.Modified()
 
-            glyph3D = vtkGlyph3D()
-            glyph3D.SetSourceConnection(self.source.GetOutputPort())
-            glyph3D.SetInputData(selected)
-
-            self.selected_mapper.SetInputConnection(glyph3D.GetOutputPort())
-            self.selected_actor.SetMapper(self.selected_mapper)
-            self.selected_actor.GetProperty().SetColor(colors.GetColor3d('Red'))
-
-            self.GetInteractor().GetRenderWindow().GetRenderers().GetFirstRenderer().AddActor(self.selected_actor)
-
-        # Forward events
-        self.OnLeftButtonDown()
+            self.iren.GetRenderWindow().Render()
 
 
-from utils import read_mesh
-
-
-def main(argv):
+def main():
     colors = vtkNamedColors()
 
     mesh = read_mesh('../result/ssm/ssm.vtk')
@@ -107,7 +110,7 @@ def main(argv):
 
     actor = vtkActor()
     actor.GetProperty().SetColor(colors.GetColor3d('lightyellow'))
-    # actor.GetProperty().SetRepresentationToWireframe()
+    actor.GetProperty().SetRepresentationToWireframe()
     actor.SetMapper(mapper)
 
     renderer = vtkRenderer()
@@ -118,20 +121,24 @@ def main(argv):
     iren.SetRenderWindow(ren_win)
 
     renderer.AddActor(actor)
-    # renderer.ResetCamera()
     renderer.SetBackground(colors.GetColor3d('AliceBlue'))
 
-    # Add the custom style.
-    style = MouseInteractorStyle(mesh)
-    style.SetDefaultRenderer(renderer)
+    callback = HoverCallback(mesh, iren)
+
+    style = vtkInteractorStyleTrackballCamera()
     iren.SetInteractorStyle(style)
 
+    hw = vtkHoverWidget()
+    hw.SetInteractor(iren)
+    hw.SetTimerDuration(5)  # Time (ms) required to trigger a hover event
+    hw.AddObserver(vtkCommand.TimerEvent, callback)  # Start of hover
+    hw.AddObserver(vtkCommand.EndInteractionEvent, callback)  # Hover ended (mouse moved)
+
     ren_win.Render()
+    hw.On()
     iren.Initialize()
     iren.Start()
 
 
 if __name__ == '__main__':
-    import sys
-
-    main(sys.argv)
+    main()
