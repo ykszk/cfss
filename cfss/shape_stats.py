@@ -26,7 +26,7 @@ from vtkmodules.vtkCommonDataModel import (
     vtkSelectionNode,
     vtkUnstructuredGrid,
 )
-from vtkmodules.vtkFiltersCore import vtkGlyph3D
+from vtkmodules.vtkFiltersCore import vtkGlyph3D, vtkPolyDataNormals
 from vtkmodules.vtkFiltersExtraction import vtkExtractSelection
 from vtkmodules.vtkFiltersSources import vtkSphereSource
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
@@ -80,7 +80,7 @@ class MouseInteractorStyle(vtkInteractorStyleTrackballCamera):
         # picker = vtkCellPicker()
         picker = vtkHardwarePicker()
         picker.SnapToMeshPointOn()
-        picker.SetPixelTolerance(10)
+        picker.SetPixelTolerance(5)
         # picker.UseCellsOn()
         # picker.SetTolerance(0.01)
 
@@ -109,18 +109,6 @@ class MouseInteractorStyle(vtkInteractorStyleTrackballCamera):
             extract_selection.SetInputData(1, selection)
             extract_selection.Update()
 
-            # In selection
-            # sed_points = vtkPoints()
-            # sed_points.InsertNextPoint()
-            # selected = vtkPolyData()
-            # selected.ShallowCopy(extract_selection.GetOutput())
-            # selected.GetPoints().GetData().SetNumberOfComponents(1)
-            # # selected.GetPoints().SetNumberOfPoints(2)
-            # print(self.scalar)
-            # print(selected.GetPoints().GetData())
-            # print(selected.GetPoints().GetNumberOfPoints())
-            # selected.GetPoints().SetData(self.scalar)
-
             glyph3D = vtkGlyph3D()
             glyph3D.SetSourceConnection(self.source.GetOutputPort())
             glyph3D.SetInputConnection(extract_selection.GetOutputPort())
@@ -140,6 +128,7 @@ class MouseInteractorStyle(vtkInteractorStyleTrackballCamera):
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         QtWidgets.QMainWindow.__init__(self, parent)
+        self.setWindowTitle('CFDB Browser')
 
         logger.info('Create pca')
         indir = Path('../result/lm_aligned')
@@ -156,13 +145,13 @@ class MainWindow(QtWidgets.QMainWindow):
         colors = vtkNamedColors()
 
         mesh = read_mesh('../result/ssm/ssm.vtk')
+        mesh_points = vtk_to_numpy(mesh.GetPoints().GetData())
 
         mapper = vtkPolyDataMapper()
         mapper.SetInputData(mesh)
 
         actor = vtkActor()
         actor.GetProperty().SetColor(colors.GetColor3d('lightyellow'))
-        actor.GetProperty().SetRepresentationToWireframe()
         actor.SetMapper(mapper)
         self.actor = actor
 
@@ -192,6 +181,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dock.setWidget(dock_widget)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self.dock)
 
+        group = QtWidgets.QGroupBox('Rendering', self)
+        dock_widget.layout().addWidget(group)
+        group.setLayout(QtWidgets.QVBoxLayout())
+        combobox = QtWidgets.QComboBox(self)
+        combobox.addItems(['Surface', 'Wireframe', 'Points'])
+
+        def set_representation(index: int):
+            if index == 0:
+                actor.GetProperty().SetRepresentationToSurface()
+            elif index == 1:
+                actor.GetProperty().SetRepresentationToWireframe()
+            elif index == 2:
+                actor.GetProperty().SetRepresentationToPoints()
+            else:
+                raise RuntimeError(f'Invalid index for rendering: {index}')
+            actor.Modified()
+            ren_win.Render()
+
+        combobox.currentIndexChanged.connect(set_representation)
+        group.layout().addWidget(combobox)
+
         group = QtWidgets.QGroupBox('Distance', self)
         dock_widget.layout().addWidget(group)
         group.setLayout(QtWidgets.QVBoxLayout())
@@ -219,11 +229,68 @@ class MainWindow(QtWidgets.QMainWindow):
         def calc_callback():
             logger.info(f'Calc stats for {style.pids[0]} and {style.pids[1]}')
             dists = pca_stats.dists_between(style.pids[0], style.pids[1])
+            # print(dists)
+            p1 = np.array(mesh.GetPoint(style.pids[0]))
+            p2 = np.array(mesh.GetPoint(style.pids[1]))
+            cur_dist = np.linalg.norm(p1 - p2)
 
-            calc_result.setText(f'mean: {dists.mean():.2f} mm\nstd: {dists.std():.2f} mm')
+            text1 = f'Current: {cur_dist:.2f} mm'
+            text2 = f'Statistics\n mean: {dists.mean():.2f} mm\n std: {dists.std():.2f} mm'
+            text = '\n'.join([text1, text2])
+            calc_result.setText(text)
 
         button.clicked.connect(calc_callback)
         group.layout().addWidget(calc_result)
+
+        group = QtWidgets.QGroupBox('Warp', self)
+        dock_widget.layout().addWidget(group)
+        group.setLayout(QtWidgets.QVBoxLayout())
+
+        data_list = ['average'] + [f'case {i+1}' for i in range(len(pca_stats.components))]
+        slider = QtWidgets.QSlider(Qt.Orientation.Horizontal)
+        slider.setMaximum(100)
+        slider.setMinimum(0)
+        slider.setValue(0)
+        warp_boxes = []
+        for i in range(2):
+            combobox = QtWidgets.QComboBox(self)
+            combobox.addItems(data_list)
+
+            def callback(_):
+                # change value from 1 to 0 to make sure to CHANGE the value to 0
+                slider.setValue(1)
+                slider.setValue(0)
+                # slider.triggerAction(slider.valueChanged)
+
+            combobox.currentIndexChanged.connect(callback)
+            warp_boxes.append(combobox)
+            group.layout().addWidget(QtWidgets.QLabel(f'Data{i+1}', self))
+            group.layout().addWidget(combobox)
+
+        normal_filter = vtkPolyDataNormals()
+        normal_filter.SetInputData(mesh)
+        normal_filter.SplittingOff()
+
+        def slider_callback():
+            value = slider.value() / 100
+            idx1, idx2 = warp_boxes[0].currentIndex(), warp_boxes[1].currentIndex()
+            # logger.info(f'warp: {value}, {idx1}, {idx2}')
+            zeros = np.zeros_like(pca_stats.all_coefs[0])
+            coef1 = zeros if idx1 == 0 else pca_stats.all_coefs[idx1 - 1]
+            coef2 = zeros if idx2 == 0 else pca_stats.all_coefs[idx2 - 1]
+            coef = (1 - value) * coef1 + value * coef2
+            mesh_points[:] = pca_stats.pca.inverse_transform(coef[np.newaxis])[0].reshape(
+                -1, 3
+            )  # pca_stats.mean + coef * pca_stats.components
+            mesh.GetPoints().SetData(numpy_to_vtk(mesh_points))
+            normal_filter.Update()
+            normals = normal_filter.GetOutput()
+            mesh.GetCellData().SetNormals(normals.GetCellData().GetNormals())  # TODO: is this actually working?
+            mesh.Modified()
+            ren_win.Render()
+
+        slider.valueChanged.connect(slider_callback)
+        group.layout().addWidget(slider)
 
         dock_widget.layout().addStretch(1)
 
