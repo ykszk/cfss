@@ -3,5 +3,5 @@ vtk
 logzero
 doit
 simpleitk
-probreg
+pyqt
 git+https://github.com/ykszk/szkmipy.git
