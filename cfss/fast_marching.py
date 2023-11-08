@@ -33,7 +33,6 @@ def main():
         new_size = np.ceil(orig_size / 2).astype(int).tolist()
         resample.SetSize(new_size)
         resampled = resample.Execute(inputImage)
-        sitk.WriteImage(resampled, 'resampled.nii.gz')
 
         thresholder = sitk.BinaryThresholdImageFilter()
         thresholder.SetLowerThreshold(0.25)
@@ -41,7 +40,6 @@ def main():
         thresholder.SetInsideValue(1)
         thresholder.SetOutsideValue(0)
         inputImage = thresholder.Execute(resampled)
-        sitk.WriteImage(inputImage, 'threshed.nii.gz')
 
     seg_arr = sitk.GetArrayFromImage(inputImage)
     bmin, bmax = boundingbox.bbox(seg_arr)
@@ -53,7 +51,6 @@ def main():
     dist_filter = sitk.SignedMaurerDistanceMapImageFilter()
     dist_filter.UseImageSpacingOn()
     dist_image = dist_filter.Execute(inputImage)
-    sitk.WriteImage(dist_image, 'dist_image.nii.gz')
     fastMarching = sitk.FastMarchingImageFilter()
 
     timeThreshold = 100
