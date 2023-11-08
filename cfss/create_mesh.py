@@ -15,6 +15,7 @@ def main():
     parser = argparse.ArgumentParser(description='Fast marching (level set).')
     parser.add_argument('input', help='Input segmentation filename', metavar='<input>')
     parser.add_argument('output', help='Output vtp/xml filename', metavar='<output>')
+    # TODO: Add option to specify the number of point instead of reduction rate
     parser.add_argument('--reduction', help='Target reduction rate. default: %(default)s', type=float, default=0.95)
     args = parser.parse_args()
 
