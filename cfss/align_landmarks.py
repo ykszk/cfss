@@ -19,6 +19,12 @@ def main():
     parser.add_argument('landmark', help='Lanrmark filename (.mrk.json)')
     parser.add_argument('moving', help='Input mesh filename')
     parser.add_argument('output', help='Output mesh filename')
+    parser.add_argument(
+        '--mode',
+        help='Transformation mode. default: %(default)s',
+        default='rigid',
+        choices=['rigid', 'similarity', 'affine'],
+    )
 
     args = parser.parse_args()
 
@@ -42,8 +48,14 @@ def main():
     ltf = vtkLandmarkTransform()
     ltf.SetSourceLandmarks(lms[1])
     ltf.SetTargetLandmarks(lms[0])
-    # ltf.SetModeToAffine()
-    ltf.SetModeToSimilarity()
+    if args.mode == 'rigid':
+        ltf.SetModeToRigidBody()
+    elif args.mode == 'similarity':
+        ltf.SetModeToSimilarity()
+    elif args.mode == 'affine':
+        ltf.SetModeToAffine()
+    else:
+        raise RuntimeError(f'Invalid mode: {args.mode}')
     ltf.Update()
 
     tf = vtkTransformPolyDataFilter()
