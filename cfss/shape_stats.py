@@ -245,9 +245,14 @@ class MainWindow(QtWidgets.QMainWindow):
             p1 = np.array(mesh.GetPoint(style.pids[0]))
             p2 = np.array(mesh.GetPoint(style.pids[1]))
             cur_dist = np.linalg.norm(p1 - p2)
+            d_mean = dists.mean()
+            d_std = dists.std()
+            text1 = f'Current:\n {cur_dist:.2f} mm'
+            if d_std > 0:
+                score = (cur_dist - d_mean) / d_std
+                text1 += f'\n z-score: {score:.2f}'
 
-            text1 = f'Current: {cur_dist:.2f} mm'
-            text2 = f'Statistics\n mean: {dists.mean():.2f} mm\n std: {dists.std():.2f} mm'
+            text2 = f'Statistics\n mean: {d_mean:.2f} mm\n std: {d_std:.2f} mm'
             text = '\n'.join([text1, text2])
             calc_result.setText(text)
 
