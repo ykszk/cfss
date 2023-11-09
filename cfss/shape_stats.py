@@ -137,6 +137,8 @@ def make_parser():
     parser.add_argument(
         '--morph_max', help='Morph slider\'s maximum value. default: %(default)s', default=100, type=int
     )
+    parser.add_argument('--max_coef', help='Maximum coeficient. default: %(default)s', default=3, type=int)
+    parser.add_argument('--pcs', help='Number of principal components. default: %(default)s', default=3, type=int)
     return parser
 
 
@@ -144,6 +146,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         QtWidgets.QMainWindow.__init__(self, parent)
         self.setWindowTitle('CFDB Browser')
+        self.resize(1024, 1024)
 
         args = make_parser().parse_args()
 
@@ -219,6 +222,7 @@ class MainWindow(QtWidgets.QMainWindow):
         group.layout().addWidget(combobox)
 
         group = QtWidgets.QGroupBox('Distance', self)
+        group.setToolTip('Euclidean distance between two points')
         dock_widget.layout().addWidget(group)
         group.setLayout(QtWidgets.QVBoxLayout())
 
@@ -259,15 +263,21 @@ class MainWindow(QtWidgets.QMainWindow):
         style.add_on_change(calc_callback)
         group.layout().addWidget(calc_result)
 
-        group = QtWidgets.QGroupBox('Morph', self)
+        group = QtWidgets.QGroupBox('Shape', self)
+        shape_group = group
+        dock_widget.layout().addWidget(group)
+        group.setLayout(QtWidgets.QVBoxLayout())
+
+        group = QtWidgets.QGroupBox('Morph to', self)
+        morph_group = group
         dock_widget.layout().addWidget(group)
         group.setLayout(QtWidgets.QVBoxLayout())
 
         data_list = ['average'] + [f'case {i+1}' for i in range(len(pca_stats.components))]
-        slider = QtWidgets.QSlider(Qt.Orientation.Horizontal)
-        slider.setMaximum(max(100, args.morph_max))
-        slider.setMinimum(min(0, 0 - (args.morph_max - 100)))
-        slider.setValue(0)
+        morph_slider = QtWidgets.QSlider(Qt.Orientation.Horizontal)
+        morph_slider.setMaximum(max(100, args.morph_max))
+        morph_slider.setMinimum(min(0, 0 - (args.morph_max - 100)))
+        morph_slider.setValue(0)
         morph_boxes = []
         for i in range(2):
             combobox = QtWidgets.QComboBox(self)
@@ -275,27 +285,75 @@ class MainWindow(QtWidgets.QMainWindow):
 
             def callback(_):
                 # change value from 1 to 0 to make sure to CHANGE the value to 0
-                slider.setValue(1)  # TODO: fix this workaround
-                slider.setValue(0)
+                morph_slider.setValue(1)  # TODO: fix this workaround
+                morph_slider.setValue(0)
 
             combobox.currentIndexChanged.connect(callback)
             morph_boxes.append(combobox)
-            group.layout().addWidget(QtWidgets.QLabel(f'Data{i+1}', self))
-            group.layout().addWidget(combobox)
+            if i == 0:
+                shape_group.layout().addWidget(combobox)
+            else:
+                morph_group.layout().addWidget(combobox)
 
         normal_filter = vtkPolyDataNormals()
         normal_filter.SetInputData(mesh)
         normal_filter.SplittingOff()
 
-        def slider_callback():
-            slider.setToolTip(f'{slider.value()}')
-            value = slider.value() / 100
+        def morph_slider_callback():
+            morph_slider.setToolTip(f'{slider.value()}')
+            value = morph_slider.value() / 100
+            logger.debug('Morph slider changed: %s', value)
             idx1, idx2 = morph_boxes[0].currentIndex(), morph_boxes[1].currentIndex()
             # mean shape is `idx1 == 0 `
             zeros = np.zeros_like(pca_stats.all_coefs[0])
             coef1 = zeros if idx1 == 0 else pca_stats.all_coefs[idx1 - 1]
             coef2 = zeros if idx2 == 0 else pca_stats.all_coefs[idx2 - 1]
             coef = (1 - value) * coef1 + value * coef2
+            set_coef(coef)
+
+        morph_slider.valueChanged.connect(morph_slider_callback)
+        group.layout().addWidget(morph_slider)
+
+        group = QtWidgets.QGroupBox('PCA', self)
+        dock_widget.layout().addWidget(group)
+        group.setLayout(QtWidgets.QVBoxLayout())
+
+        pc_sliders = []
+
+        PC_DENOM = 10
+
+        def pc_callback(index: int):
+            def callback():
+                coef = pca_stats.pca.transform(mesh_points.ravel()[np.newaxis])[0]
+                value = pc_sliders[index].value() / PC_DENOM
+                coef[index] = value * np.sqrt(pca_stats.pca.explained_variance_[index])
+                set_coef(coef)
+
+            return callback
+
+        pca_label = QtWidgets.QLabel('magnitude = 0')
+        pca_label.setToolTip('Magnitude of coefficients')
+        group.layout().addWidget(pca_label)
+        n_pcs = min(args.pcs, len(filenames) - 1)
+        logger.info('Number of PCs: %d', n_pcs)
+        for i in range(n_pcs):
+            group.layout().addWidget(QtWidgets.QLabel(f'PC {i+1}'))
+            slider = QtWidgets.QSlider(Qt.Orientation.Horizontal)
+            slider.setMaximum(PC_DENOM * args.max_coef)
+            slider.setMinimum(PC_DENOM * -args.max_coef)
+            slider.setValue(0)
+            pc_sliders.append(slider)
+            slider.valueChanged.connect(pc_callback(i))
+            group.layout().addWidget(slider)
+
+        def set_coef(coef):
+            normed_coef = coef / np.sqrt(pca_stats.pca.explained_variance_)
+            pca_label.setText(f'magnitude = {np.linalg.norm(normed_coef):.02f}')
+            for i, slider in enumerate(pc_sliders):
+                slider.blockSignals(True)
+                c = normed_coef[i]
+                slider.setValue(int(PC_DENOM * c))
+                slider.blockSignals(False)
             mesh_points[:] = pca_stats.pca.inverse_transform(coef[np.newaxis])[0].reshape(
                 -1, 3
             )  # pca_stats.mean + coef * pca_stats.components
@@ -306,9 +364,6 @@ class MainWindow(QtWidgets.QMainWindow):
             mesh.Modified()
             ren_win.Render()
             calc_callback()
-
-        slider.valueChanged.connect(slider_callback)
-        group.layout().addWidget(slider)
 
         dock_widget.layout().addStretch(1)
 
