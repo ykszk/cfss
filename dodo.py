@@ -77,7 +77,7 @@ def task_mesh():
     '''
     script = SRC_DIR / 'create_mesh.py'
     # for outdir, reduction in [(MESH_OUTDIR, 0.99), (FINE_MESH_OUTDIR, 0.98)]:
-    for outdir, reduction in [(MESH_OUTDIR, 0.90)]:
+    for outdir, reduction in [(MESH_OUTDIR, 0.85)]:
         outdir.mkdir(exist_ok=True, parents=True)
 
         for data_id in id_list:
@@ -169,7 +169,7 @@ def task_register():
     bat = TOOL_DIR / 'SSM/PairwiseCorrespondence/SurfaceBasedPairwiseCorrespondence.bat'
     N_PTS = 10000  # irrelevant?
     FINAL_TOLERANCE = 0.0001
-    MID_TOLERANCE = 0.01
+    MID_TOLERANCE = 0.001
     REG_OUTDIR.mkdir(exist_ok=True, parents=True)
     pathlist = REG_OUTDIR / 'idpathlist.txt'
     ref_fn = (ALIGN_OUTDIR / f'{REF_ID}{MESH_EXT}').absolute()
@@ -226,43 +226,43 @@ def task_show_landmarks():
     }
 
 
+def task_browse():
+    '''
+    Open cfdb browser
+    '''
+    script = SRC_DIR / 'shape_stats.py'
+    return {
+        'actions': [f'python {script} -i {ALIGN_LM_OUTDIR}'],
+    }
+
+
 def task_dcm2mha():
     '''
     Convert zipped dicom files to mha files
     '''
     script = SRC_DIR / 'zip2mha.py'
-    # TODO: implement
-    meshfn = MESH_OUTDIR / f'{REF_ID}{MESH_EXT}'
-    lmfn = LANDMARK_DIR / f'{REF_ID}.mrk.json'
+    dicom_dir = 'data/dicom'
+    mha_dir = 'data/mha'
     return {
-        'actions': [f'python {script} {meshfn} {lmfn}'],
-        # 'file_dep': [meshfn],
+        'actions': [f'python {script} {dicom_dir} {mha_dir}'],
     }
 
 
-def task_remove_bed():
-    '''
-    Remove bed from CT images (mha)
-    '''
-    script = SRC_DIR / 'remove_bed.py'
-    # TODO: implement
-    meshfn = MESH_OUTDIR / f'{REF_ID}{MESH_EXT}'
-    lmfn = LANDMARK_DIR / f'{REF_ID}.mrk.json'
-    return {
-        'actions': [f'python {script} {meshfn} {lmfn}'],
-        # 'file_dep': [meshfn],
-    }
+# def task_remove_bed():
+#     '''
+#     Remove bed from CT images (mha)
+#     '''
+#     script = SRC_DIR / 'remove_bed.py'
+#     return {
+#         'actions': [f'python {script}'],
+#     }
 
 
-def task_segment_bone():
-    '''
-    Remove bed from CT images (mha)
-    '''
-    script = SRC_DIR / 'segment_bone.py'
-    # TODO: implement
-    meshfn = MESH_OUTDIR / f'{REF_ID}{MESH_EXT}'
-    lmfn = LANDMARK_DIR / f'{REF_ID}.mrk.json'
-    return {
-        'actions': [f'python {script} {meshfn} {lmfn}'],
-        # 'file_dep': [meshfn],
-    }
+# def task_segment_bone():
+#     '''
+#     Segment bone
+#     '''
+#     script = SRC_DIR / 'segment_bone.py'
+#     return {
+#         'actions': [f'python {script}'],
+#     }
