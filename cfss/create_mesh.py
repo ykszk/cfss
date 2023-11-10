@@ -44,6 +44,7 @@ def main():
     smoother.NormalizeCoordinatesOn()
     smoother.Update()
 
+    # TODO: Use https://discourse.vtk.org/t/feature-request-add-acvd-uniform-remeshing-filter/10346/10 or something similar
     decimate = vtkQuadricDecimation()
     decimate.SetTargetReduction(args.reduction)
     decimate.SetInputConnection(smoother.GetOutputPort())

@@ -13,6 +13,7 @@ from szkmipy import mhd
 from vtkmodules.vtkCommonDataModel import vtkPolyData
 from vtkmodules.vtkFiltersCore import vtkPolyDataNormals
 from vtkmodules.vtkIOLegacy import vtkDataWriter, vtkPolyDataReader, vtkPolyDataWriter
+from vtkmodules.vtkIOPLY import vtkPLYWriter
 from vtkmodules.vtkIOXML import vtkXMLPolyDataReader, vtkXMLPolyDataWriter
 
 
@@ -36,6 +37,8 @@ def write_mesh(filename: str, mesh):
         writer.SetFileVersion(vtkDataWriter.VTK_LEGACY_READER_VERSION_4_2)
     elif ext in ['.vtp', '.xml']:
         writer = vtkXMLPolyDataWriter()
+    elif ext == '.ply':
+        writer = vtkPLYWriter()
     else:
         raise RuntimeError(f'Invalid file format: {filename}')
     writer.SetFileName(filename)

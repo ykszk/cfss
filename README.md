@@ -30,13 +30,21 @@ Internals:
 ## Step 2
 Manually correct segmentation errros in `data/*/*/1_auto_skull.mha` files.
 
+### Note
+- Close [foramen magnum](https://en.wikipedia.org/wiki/Foramen_magnum) to fill up cranial cavity in the subsequent process
+- Remove:
+    - vertebrae
+    - metal artifacts (around teeth)
+    - (maybe [temporal styloid process](https://en.wikipedia.org/wiki/Temporal_styloid_process))
+        - I unintentionally did.
+
 ## Step 3
 ```shell
 doit align_bb
 ```
 
 Internals:
-- Apply levelset segmentation to segmentation and create mesh files from levelset segmentations.
+- Apply levelset segmentation to segment and create mesh files from levelset segmentations.
 - Align meshes so that the mid points of bounding boxes of align. The alignment is only done by translation.
 
 ```shell
@@ -85,3 +93,9 @@ to list available tasks and checkout `dodo.py` for any details.
     - `landmarks`: landmark point file (.mrk.json) created using 3D Slicer
 - `result`: results
 - `tools`: external tools (for registration and ssm)
+
+
+# TODO
+- Use [MmgTools](https://github.com/MmgTools/mmg) for mesh creation/decimation.
+- Improve levelset segmentation. Currently, segmented area is somewhat bloated.
+- Make `doit register` portable. Currently, it's relying on windows-only binaries.
