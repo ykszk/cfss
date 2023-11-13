@@ -2,6 +2,7 @@ import argparse
 import shutil
 import sys
 from pathlib import Path
+from typing import Union
 
 import cc3d
 import logzero
@@ -17,7 +18,9 @@ from vtkmodules.vtkIOPLY import vtkPLYWriter
 from vtkmodules.vtkIOXML import vtkXMLPolyDataReader, vtkXMLPolyDataWriter
 
 
-def read_mesh(filename: str) -> vtkPolyData:
+def read_mesh(filename: Union[str, Path]) -> vtkPolyData:
+    filename = Path(filename)
+    ext = filename.suffix
     ext = Path(filename).suffix
     if ext == '.vtk':
         reader = vtkPolyDataReader()
@@ -25,13 +28,14 @@ def read_mesh(filename: str) -> vtkPolyData:
         reader = vtkXMLPolyDataReader()
     else:
         raise RuntimeError(f'Invalid file format: {filename}')
-    reader.SetFileName(filename)
+    reader.SetFileName(str(filename))
     reader.Update()
     return reader.GetOutput()
 
 
-def write_mesh(filename: str, mesh):
-    ext = Path(filename).suffix
+def write_mesh(filename: Union[str, Path], mesh):
+    filename = Path(filename)
+    ext = filename.suffix
     if ext == '.vtk':
         writer = vtkPolyDataWriter()
         writer.SetFileVersion(vtkDataWriter.VTK_LEGACY_READER_VERSION_4_2)
@@ -41,7 +45,7 @@ def write_mesh(filename: str, mesh):
         writer = vtkPLYWriter()
     else:
         raise RuntimeError(f'Invalid file format: {filename}')
-    writer.SetFileName(filename)
+    writer.SetFileName(str(filename))
     writer.SetInputData(mesh)
     writer.Update()
 

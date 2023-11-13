@@ -1,12 +1,10 @@
 import argparse
 import sys
 
-from utils import write_mesh
-from vtkmodules.vtkFiltersCore import (
-    vtkPolyDataNormals,
-    vtkQuadricDecimation,
-    vtkWindowedSincPolyDataFilter,
-)
+import pyacvd
+import pyvista as pv
+from utils import calculate_normals, write_mesh
+from vtkmodules.vtkFiltersCore import vtkWindowedSincPolyDataFilter
 from vtkmodules.vtkFiltersGeneral import vtkDiscreteMarchingCubes
 from vtkmodules.vtkIOImage import vtkMetaImageReader, vtkNIFTIImageReader
 
@@ -15,8 +13,7 @@ def main():
     parser = argparse.ArgumentParser(description='Fast marching (level set).')
     parser.add_argument('input', help='Input segmentation filename', metavar='<input>')
     parser.add_argument('output', help='Output vtp/xml filename', metavar='<output>')
-    # TODO: Add option to specify the number of point instead of reduction rate
-    parser.add_argument('--reduction', help='Target reduction rate. default: %(default)s', type=float, default=0.95)
+    parser.add_argument('--points', help='Number of pints in the mesh. default: %(default)s', type=int, default=80000)
     args = parser.parse_args()
 
     if args.input.endswith('.nii.gz'):
@@ -29,9 +26,9 @@ def main():
     discrete.SetInputData(reader.GetOutput())
     discrete.SetValue(0, 1)
 
-    smoothing_iterations = 15
+    smoothing_iterations = 20
     pass_band = 0.001
-    feature_angle = 120.0
+    feature_angle = 45.0
 
     smoother = vtkWindowedSincPolyDataFilter()
     smoother.SetInputConnection(discrete.GetOutputPort())
@@ -44,17 +41,16 @@ def main():
     smoother.NormalizeCoordinatesOn()
     smoother.Update()
 
-    # TODO: Use https://discourse.vtk.org/t/feature-request-add-acvd-uniform-remeshing-filter/10346/10 or something similar
-    decimate = vtkQuadricDecimation()
-    decimate.SetTargetReduction(args.reduction)
-    decimate.SetInputConnection(smoother.GetOutputPort())
-    decimate.Update()
+    pv_mesh = pv.wrap(smoother.GetOutput())
+    clus = pyacvd.Clustering(pv_mesh)
+    # mesh is not dense enough for uniform remeshing
+    # clus.subdivide(3)
+    clus.cluster(args.points)
+    remeshed = clus.create_mesh()
 
-    normals = vtkPolyDataNormals()
-    normals.SetInputData(decimate.GetOutput())
-    normals.Update()
+    normals = calculate_normals(remeshed)
 
-    write_mesh(args.output, normals.GetOutput())
+    write_mesh(args.output, normals)
 
 
 if __name__ == '__main__':

@@ -20,6 +20,7 @@ LANDMARK_DIR = Path(os.environ.get('LANDMARK_DIR', 'data/landmarks'))
 OUT_DIR = Path(os.environ.get('OUT_DIR', 'result'))
 
 MESH_EXT = os.environ.get('MESH_EXT', '.vtk')
+N_MESH_POINTS = int(os.environ.get('N_MESH_POINTS', '80000'))
 
 REF_ID = os.environ.get('REF_ID', '')  # optional
 
@@ -76,20 +77,17 @@ def task_mesh():
     Create mesh
     '''
     script = SRC_DIR / 'create_mesh.py'
-    # for outdir, reduction in [(MESH_OUTDIR, 0.99), (FINE_MESH_OUTDIR, 0.98)]:
-    for outdir, reduction in [(MESH_OUTDIR, 0.85)]:
-        outdir.mkdir(exist_ok=True, parents=True)
 
-        for data_id in id_list:
-            infn = LEVELSET_OUTDIR / f'{data_id}.mha'
-            outfn = outdir / f'{data_id}{MESH_EXT}'
-            yield {
-                'name': f'{data_id}-{outdir.name}',
-                'actions': [f'python {script} {infn} {outfn} --reduction {reduction}'],
-                'file_dep': [infn],
-                'targets': [outfn],
-                'clean': True,
-            }
+    for data_id in id_list:
+        infn = LEVELSET_OUTDIR / f'{data_id}.mha'
+        outfn = MESH_OUTDIR / f'{data_id}{MESH_EXT}'
+        yield {
+            'name': f'{data_id}',
+            'actions': [f'python {script} {infn} {outfn} --points {N_MESH_POINTS}'],
+            'file_dep': [infn],
+            'targets': [outfn],
+            'clean': True,
+        }
 
 
 ALIGN_OUTDIR = OUT_DIR / 'aligned'

@@ -4,4 +4,6 @@ logzero
 doit
 simpleitk
 pyqt
+pyacvd
+pyvista
 git+https://github.com/ykszk/szkmipy.git
