@@ -7,6 +7,7 @@ tmp*
 dev*
 
 *.vtp
+*.vtk
 *.mhd
 *.mha
 *.raw

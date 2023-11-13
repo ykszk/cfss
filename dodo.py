@@ -155,6 +155,7 @@ REG_OUTDIR = OUT_DIR / 'register'
 #             'targets': [outfn],
 #             'clean': True,
 #         }
+from cfss import create_average, irtk_reg
 
 
 def task_register():
@@ -164,51 +165,45 @@ def task_register():
     # if os.name != 'nt':
     #     print('Run this task in windows!')
     #     return
-    bat = TOOL_DIR / 'SSM/PairwiseCorrespondence/SurfaceBasedPairwiseCorrespondence.bat'
-    N_PTS = 10000  # irrelevant?
-    FINAL_TOLERANCE = 0.0001
-    MID_TOLERANCE = 0.001
+    BIN_DIR = TOOL_DIR / 'bin'
+    N_REG_ITER = 3
+    N_ITER = 1000  # Number of 3D registration iterations
+    FINAL_DS = 10  # Control point spacing
+    FINAL_TOLERANCE = 0.0001  # Value for espilon
     REG_OUTDIR.mkdir(exist_ok=True, parents=True)
-    pathlist = REG_OUTDIR / 'idpathlist.txt'
     ref_fn = (ALIGN_OUTDIR / f'{REF_ID}{MESH_EXT}').absolute()
-    mesh_fns = [(ALIGN_OUTDIR / f'{data_id}{MESH_EXT}').absolute() for data_id in id_list]
-    with open(pathlist, 'w') as f:
-        for fn in mesh_fns:
-            f.write(f'{fn.stem} {fn}\n')
-    targets = [str(REG_OUTDIR / f'{data_id}{MESH_EXT}') for data_id in id_list]
-    # TODO: No file_dep for now
-
-    return {
-        'actions': [f'{bat} {pathlist} {N_PTS} {ref_fn} {REG_OUTDIR} {FINAL_TOLERANCE} {MID_TOLERANCE}'],
-        'targets': targets,
-    }
-
-
-SSM_OUTDIR = OUT_DIR / 'ssm'
-
-
-def task_ssm():
-    '''
-    Create ssm
-    '''
-    # if os.name != 'nt':
-    #     print('Run this task in windows!')
-    #     return
-    bin = TOOL_DIR / 'SSM/BuildHierarchicalSSM.exe'
-    SSM_OUTDIR.mkdir(exist_ok=True, parents=True)
-    pathlist = SSM_OUTDIR / 'surfacelist.txt'
-    mesh_fns = [(ALIGN_LM_OUTDIR / f'{data_id}{MESH_EXT}').absolute() for data_id in id_list]
-    outfn = SSM_OUTDIR / 'ssm.xml'
-    with open(pathlist, 'w') as f:
-        for fn in mesh_fns:
-            f.write(f'{fn}\n')
-    # TODO: No file_dep for now
-
-    return {
-        'actions': [f'{bin} {pathlist} {outfn}'],
-        # 'targets': targets,
-        # 'file_dep': [align_lm_results]
-    }
+    file_dep = []  # TODO: file_dep[bb alignemnt]
+    for i in range(N_REG_ITER):
+        if i == (N_REG_ITER - 1):
+            outdir = REG_OUTDIR
+        else:
+            outdir = REG_OUTDIR / f'iter{i}'
+        outdir.mkdir(parents=True, exist_ok=True)
+        all_target = []
+        tol = FINAL_TOLERANCE * (2 ** (N_REG_ITER - i - 1))
+        ds = FINAL_DS * (2 ** (N_REG_ITER - i - 1))
+        for data_id in id_list:
+            logdir = outdir / 'log' / data_id
+            logdir.mkdir(parents=True, exist_ok=True)
+            mesh = ALIGN_OUTDIR / f'{data_id}{MESH_EXT}'
+            output = outdir / f'{data_id}{MESH_EXT}'
+            all_target.append(output)
+            args = (BIN_DIR, ref_fn, mesh, output, logdir, tol, N_ITER, ds)
+            yield {
+                'name': f'{data_id}-iter{i}',
+                'actions': [(irtk_reg.register, args)],
+                'file_dep': file_dep,
+                'targets': [output],
+            }
+        ref_fn = outdir / 'average_surface.vtk'
+        args = (all_target, ref_fn)
+        yield {
+            'name': f'average-iter{i}',
+            'actions': [(create_average.create, args)],
+            'file_dep': all_target,
+            'targets': [ref_fn],
+        }
+        file_dep = [ref_fn]
 
 
 def task_show_landmarks():

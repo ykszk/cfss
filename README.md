@@ -13,11 +13,11 @@ Three steps:
 
 1. Run automated segmentation process to create initial segmentation of skulls
 2. Manually refine segmentations
-3. Create average shape
+3. Process mesh data and calculate craniofacial shape statistics
 
 Step 1 and 2 can be omitted if you already have segmented skulls.
 
-## Step 1
+## Step 1: Initial segmentation
 ```shell
 doit segment_bone
 ```
@@ -27,7 +27,7 @@ Internals:
 - Remove bed from the image
 - Segment skulls
 
-## Step 2
+## Step 2: Refine segmentation
 Manually correct segmentation errros in `data/*/*/1_auto_skull.mha` files.
 
 ### Note
@@ -38,13 +38,13 @@ Manually correct segmentation errros in `data/*/*/1_auto_skull.mha` files.
     - (maybe [temporal styloid process](https://en.wikipedia.org/wiki/Temporal_styloid_process))
         - I unintentionally did.
 
-## Step 3
+## Step 3: Process mesh data
 ```shell
 doit align_bb
 ```
 
 Internals:
-- Apply levelset segmentation to segment and create mesh files from levelset segmentations.
+- Apply levelset segmentation to fillup empty spaces in the skulls (including cranial cavity) and create mesh files.
 - Align meshes so that the mid points of bounding boxes of align. The alignment is only done by translation.
 
 ```shell
@@ -59,10 +59,10 @@ doit align_landmarks
 ```
 
 Internals:
-- Apply similarity transforms.
+- Apply rigid transformation to align pre-defined landmarks.
 
 ```shell
-doit ssm
+doit browse
 ```
 
 ### ⚠️ Note
@@ -96,6 +96,5 @@ to list available tasks and checkout `dodo.py` for any details.
 
 
 # TODO
-- Use [MmgTools](https://github.com/MmgTools/mmg) for mesh creation/decimation.
 - Improve levelset segmentation. Currently, segmented area is somewhat bloated.
 - Make `doit register` portable. Currently, it's relying on windows-only binaries.
