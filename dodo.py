@@ -168,7 +168,7 @@ def task_register():
     BIN_DIR = TOOL_DIR / 'bin'
     N_REG_ITER = 3
     N_ITER = 1000  # Number of 3D registration iterations
-    FINAL_DS = 10  # Control point spacing
+    FINAL_DS = 16  # Control point spacing
     FINAL_TOLERANCE = 0.0001  # Value for espilon
     REG_OUTDIR.mkdir(exist_ok=True, parents=True)
     ref_fn = (ALIGN_OUTDIR / f'{REF_ID}{MESH_EXT}').absolute()
@@ -219,13 +219,27 @@ def task_show_landmarks():
     }
 
 
+PRESET_FILENAME = OUT_DIR / 'camera_presets.json'
+
+
+def task_presets():
+    '''
+    Create camera presets
+    '''
+    script = SRC_DIR / 'landmark.py'
+    lmfn = LANDMARK_DIR / f'{REF_ID}.mrk.json'
+    return {'actions': [f'python {script} {lmfn} {PRESET_FILENAME}'], 'targets': [PRESET_FILENAME], 'file_dep': [lmfn]}
+
+
 def task_browse():
     '''
     Open cfdb browser
     '''
     script = SRC_DIR / 'shape_stats.py'
     return {
-        'actions': [f'python {script} -i {ALIGN_LM_OUTDIR}'],
+        'actions': [f'python {script} -i {ALIGN_LM_OUTDIR} --cameras {PRESET_FILENAME}'],
+        'file_dep': [PRESET_FILENAME],
+        'uptodate': [False],
     }
 
 

@@ -139,6 +139,8 @@ def make_parser():
     )
     parser.add_argument('--max_coef', help='Maximum coeficient. default: %(default)s', default=3, type=int)
     parser.add_argument('--pcs', help='Number of principal components. default: %(default)s', default=3, type=int)
+    parser.add_argument('--cameras', help='Camera preset settings (`landmark.CameraPresets`) in json format')
+
     return parser
 
 
@@ -204,14 +206,18 @@ class MainWindow(QtWidgets.QMainWindow):
         dock_widget.layout().addWidget(group)
         group.setLayout(QtWidgets.QVBoxLayout())
         combobox = QtWidgets.QComboBox(self)
-        combobox.addItems(['Surface', 'Wireframe', 'Points'])
+        combobox.addItems(['Surface', 'Surface With Edges', 'Wireframe', 'Points'])
 
         def set_representation(index: int):
+            actor.GetProperty().EdgeVisibilityOff()
             if index == 0:
                 actor.GetProperty().SetRepresentationToSurface()
             elif index == 1:
-                actor.GetProperty().SetRepresentationToWireframe()
+                actor.GetProperty().SetRepresentationToSurface()
+                actor.GetProperty().EdgeVisibilityOn()
             elif index == 2:
+                actor.GetProperty().SetRepresentationToWireframe()
+            elif index == 3:
                 actor.GetProperty().SetRepresentationToPoints()
             else:
                 raise RuntimeError(f'Invalid index for rendering: {index}')
@@ -220,6 +226,40 @@ class MainWindow(QtWidgets.QMainWindow):
 
         combobox.currentIndexChanged.connect(set_representation)
         group.layout().addWidget(combobox)
+
+        if args.cameras:
+            import landmark
+
+            with open(args.cameras) as f:
+                presets = landmark.CameraPresets.model_validate_json(f.read()).presets
+            logger.info(f'Initialize camera with {presets[0].name}')
+            param = presets[0].camera
+            cam = self.ren.GetActiveCamera()
+            cam.SetPosition(*param.position)
+            cam.SetViewUp(*param.view_up)
+            cam.SetFocalPoint(*param.focal_point)
+
+            group = QtWidgets.QGroupBox('Camera', self)
+            dock_widget.layout().addWidget(group)
+            group.setLayout(QtWidgets.QHBoxLayout())
+
+            def camera_callback(param: landmark.Camera):
+                def callback():
+                    cam = self.ren.GetActiveCamera()
+                    cam.SetPosition(*param.position)
+                    cam.SetViewUp(*param.view_up)
+                    cam.SetFocalPoint(*param.focal_point)
+                    cam.Modified()
+                    ren_win.Render()
+
+                return callback
+
+            for preset in presets:
+                button = QtWidgets.QPushButton(preset.name[0], self)
+                button.setToolTip(preset.name)
+                button.setStyleSheet('padding: 2px')
+                button.clicked.connect(camera_callback(preset.camera))
+                group.layout().addWidget(button)
 
         group = QtWidgets.QGroupBox('Distance', self)
         group.setToolTip('Euclidean distance between two points')

@@ -32,9 +32,9 @@ def main():
 
     fixed_mesh = read_mesh(args.fixed)
     landmarks = landmark.load_landmarks(args.landmark)
-    landmark_idx = [i for i, lm in enumerate(landmarks) if lm.label in landmark_labels]
-    all_lm_pts_idx = landmark.locate_landmarks(fixed_mesh, landmarks)
-    lm_pts_idx = [all_lm_pts_idx[i] for i in landmark_idx]
+    d_landmark = landmark.to_dict(landmarks)
+    landmarks = [d_landmark[label] for label in landmark_labels]
+    lm_pts_idx = landmark.locate_landmarks(fixed_mesh, landmarks)
     moving_mesh = read_mesh(args.moving)
 
     lms = []
