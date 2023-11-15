@@ -154,7 +154,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         logger.info('Create PCA')
         indir = Path(args.input)
-        filenames = sorted(indir.glob('*.vtk'))
+        filenames = sorted(indir.glob('*.vtp'))
         pca_stats, mesh = PCAStats.from_files(filenames)
         logger.info('Done')
 

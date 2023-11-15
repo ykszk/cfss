@@ -38,7 +38,7 @@ def write_mesh(filename: Union[str, Path], mesh):
     ext = filename.suffix
     if ext == '.vtk':
         writer = vtkPolyDataWriter()
-        writer.SetFileVersion(vtkDataWriter.VTK_LEGACY_READER_VERSION_4_2)
+        writer.SetFileVersion(vtkDataWriter.VTK_LEGACY_READER_VERSION_4_2)  # for irtk input
     elif ext in ['.vtp', '.xml']:
         writer = vtkXMLPolyDataWriter()
     elif ext == '.ply':

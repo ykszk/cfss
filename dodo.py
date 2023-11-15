@@ -20,6 +20,7 @@ LANDMARK_DIR = Path(os.environ.get('LANDMARK_DIR', 'data/landmarks'))
 OUT_DIR = Path(os.environ.get('OUT_DIR', 'result'))
 
 MESH_EXT = os.environ.get('MESH_EXT', '.vtk')
+FINAL_MESH_EXT = os.environ.get('FINAL_MESH_EXT', '.vtp')  # file extension for mesh that has no further processing
 N_MESH_POINTS = int(os.environ.get('N_MESH_POINTS', '80000'))
 
 REF_ID = os.environ.get('REF_ID', '')  # optional
@@ -124,7 +125,7 @@ def task_align_landmarks():
     moving_names = [
         str(REG_OUTDIR / f'{data_id}{MESH_EXT}') for data_id in id_list
     ]  # use id_list instead of target_list to copy reference data
-    targets = [str(ALIGN_LM_OUTDIR / f'{data_id}{MESH_EXT}') for data_id in id_list]
+    targets = [str(ALIGN_LM_OUTDIR / f'{data_id}{FINAL_MESH_EXT}') for data_id in id_list]  # mesh format is vtp
     for moving, target in zip(moving_names, targets):
         yield {
             'name': Path(moving).stem,
