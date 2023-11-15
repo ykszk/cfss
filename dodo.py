@@ -1,7 +1,7 @@
 import os
+import tempfile
+from datetime import datetime
 from pathlib import Path
-
-from cfss import utils
 
 
 DOIT_CONFIG = {
@@ -241,6 +241,56 @@ def task_browse():
         'actions': [f'python {script} -i {ALIGN_LM_OUTDIR} --cameras {PRESET_FILENAME}'],
         'file_dep': [PRESET_FILENAME],
         'uptodate': [False],
+    }
+
+
+LAUNCH_BAT = r'''set bin=%~dp0shape_stats\shape_stats.exe
+set data_dir=%~dp0result
+
+%bin% -i %data_dir%\lm_aligned --camera %data_dir%\camera_presets.json
+pause
+'''
+
+
+def task_package():
+    '''
+    Pack mesh data and binary into one (zip) package using pyinstaller
+    '''
+
+    def do():
+        import shutil
+        import subprocess
+
+        from logzero import logger
+
+        STEM = 'cfss'
+        APP_NAME = 'cfss'
+        ymd = datetime.now().strftime('%Y%m%d')
+        dirname = f'{STEM}_{ymd}'
+        script = SRC_DIR / 'shape_stats.py'
+        logger.info("If it's conda environemnt, consider using nomkl env to reduce the bundle size")
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            logger.info(f'Using {tmpdirname} as a temporary directory (should be auto-cleaned)')
+            tmpdir = Path(tmpdirname)
+            logger.info('pyinstaller')
+            subprocess.check_output(['pyinstaller', script], cwd=tmpdirname)
+            bindir = tmpdir / 'dist' / APP_NAME
+            datadir = bindir / 'result'
+            datadir.mkdir(parents=True, exist_ok=True)
+            shutil.move(tmpdir / 'dist' / 'shape_stats', bindir)
+            logger.info('copy camera data')
+            shutil.copy(PRESET_FILENAME, datadir)
+            logger.info('copy mesh data')
+            shutil.copytree(ALIGN_LM_OUTDIR, datadir / ALIGN_LM_OUTDIR.name)
+            logger.info('write bat')
+            with open(bindir / 'cfss.bat', 'w') as f:
+                f.write(LAUNCH_BAT)
+            logger.info('zip all')
+            shutil.make_archive(str(OUT_DIR / dirname), 'zip', str(tmpdir / bindir))
+        logger.info(f'artifact: {OUT_DIR / (dirname+".zip")}')
+
+    return {
+        'actions': [(do, [])],
     }
 
 
