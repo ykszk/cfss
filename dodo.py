@@ -78,6 +78,7 @@ def task_mesh():
     Create mesh
     '''
     script = SRC_DIR / 'create_mesh.py'
+    MESH_OUTDIR.mkdir(parents=True, exist_ok=True)
 
     for data_id in id_list:
         infn = LEVELSET_OUTDIR / f'{data_id}.mha'

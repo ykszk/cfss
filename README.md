@@ -17,7 +17,10 @@ Three steps:
 
 Step 1 and 2 can be omitted if you already have segmented skulls.
 
-## Step 1: Initial segmentation
+## Step 1: Bone segmentation
+Goal: Create segmentation files (`.nii.gz`) of bone in `data/manual_segmentation`
+
+## Step 1.1: Initial automated segmentation
 ```shell
 doit segment_bone
 ```
@@ -27,7 +30,7 @@ Internals:
 - Remove bed from the image
 - Segment skulls
 
-## Step 2: Refine segmentation
+## Step 1.2: Manual refinement of segmentation
 Manually correct segmentation errros in `data/*/*/1_auto_skull.mha` files.
 
 ### Note
@@ -38,10 +41,17 @@ Manually correct segmentation errros in `data/*/*/1_auto_skull.mha` files.
     - (maybe [temporal styloid process](https://en.wikipedia.org/wiki/Temporal_styloid_process))
         - I unintentionally did.
 
-## Step 3: Process mesh data
+## Step 2: Process mesh data
+Goal: Create `.vtp` files in `result/lm_aligned`
+
 ```shell
 doit align_bb
 ```
+- Input: `.nii.gz` files in `DATA/manual_segmentation`
+- Intermediate output
+  - levelset: `.mha` files in `RESULT/fast_marching`
+  - mesh: `.vtk` files in `RESULT/mesh`
+- Output: `.vtk` files in `RESULT/aligned`
 
 Internals:
 - Apply levelset segmentation to fillup empty spaces in the skulls (including cranial cavity) and create mesh files.
@@ -51,6 +61,9 @@ Internals:
 doit register
 ```
 
+- Input: `.vtk` files in `RESULT/aligned`
+- Output: `.vtk` files in `RESULT/register`
+
 Internals:
 - Perform mesh-to-mesh non-rigid registration
 
@@ -58,9 +71,15 @@ Internals:
 doit align_landmarks
 ```
 
+
+- Input: `.vtk` files in `RESULT/register`
+- Output: `.vtp` files in `RESULT/lm_aligned`
+
+
 Internals:
 - Apply rigid transformation to align pre-defined landmarks.
 
+## Step 3: Browse data
 ```shell
 doit browse
 ```
@@ -98,3 +117,4 @@ to list available tasks and checkout `dodo.py` for any details.
 # TODO
 - Improve levelset segmentation. Currently, segmented area is somewhat bloated.
 - Make `doit register` portable. Currently, it's relying on windows-only binaries.
+  - namely, `sareg`, `snreg` and `stransformation` from [IRTK](https://github.com/BioMedIA/IRTK)
