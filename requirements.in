@@ -1,0 +1,12 @@
+connected-components-3d
+vtk
+logzero
+doit
+simpleitk
+scipy
+scikit-learn
+pydantic
+PyQt5
+pyacvd
+pyvista
+git+https://github.com/ykszk/szkmipy.git
