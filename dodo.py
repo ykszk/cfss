@@ -302,26 +302,29 @@ def task_dcm2mha():
     script = SRC_DIR / 'zip2mha.py'
     dicom_dir = 'data/dicom'
     mha_dir = 'data/mha'
+    bin_dir = TOOL_DIR / 'bin'
     return {
-        'actions': [f'python {script} {dicom_dir} {mha_dir}'],
+        'actions': [f'python {script} {dicom_dir} {mha_dir} --bin_dir {bin_dir}'],
     }
 
 
-# def task_remove_bed():
-#     '''
-#     Remove bed from CT images (mha)
-#     '''
-#     script = SRC_DIR / 'remove_bed.py'
-#     return {
-#         'actions': [f'python {script}'],
-#     }
+def task_remove_bed():
+    '''
+    Remove bed from CT images (mha)
+    '''
+    script = SRC_DIR / 'remove_bed.py'
+    mha_dir = 'data/mha'
+    return {
+        'actions': [f'python {script} {mha_dir}'],
+    }
 
 
-# def task_segment_bone():
-#     '''
-#     Segment bone
-#     '''
-#     script = SRC_DIR / 'segment_bone.py'
-#     return {
-#         'actions': [f'python {script}'],
-#     }
+def task_segment_bone():
+    '''
+    Segment bone
+    '''
+    script = SRC_DIR / 'segment_bone.py'
+    mha_dir = 'data/mha'
+    return {
+        'actions': [f'python {script} {mha_dir}'],
+    }

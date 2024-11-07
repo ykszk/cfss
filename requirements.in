@@ -5,6 +5,7 @@ doit
 simpleitk
 scipy
 scikit-learn
+tqdm
 pydantic
 PyQt5
 pyacvd

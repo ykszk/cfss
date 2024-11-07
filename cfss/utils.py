@@ -108,6 +108,13 @@ def del_dirs(exec: bool, ds: list):
             print(' -', d)
         print('Execute command with `--exec` option to actually execute the deletion.')
 
+def find_binary(bin_dir: Path, name: str):
+    sys_bin = shutil.which(name)
+    if sys_bin:
+        return Path(sys_bin)
+    if sys.platform == 'win32':
+        name += '.exe'
+    return bin_dir / name
 
 def main():
     parser = argparse.ArgumentParser(description='CFDB utilities.')

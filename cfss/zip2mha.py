@@ -6,18 +6,30 @@ from pathlib import Path
 
 import tqdm
 from logzero import logger
-
+from utils import find_binary
 
 def main():
     parser = argparse.ArgumentParser(description='Convert (zipped) dicom into mha files')
     parser.add_argument('indir', help='Input directory:', metavar='<indir>')
     parser.add_argument('outdir', help='Output directory:', metavar='<outdir>')
+    parser.add_argument(
+        '--bin_dir',
+        help='Directory containing binary executables'
+    )
+
 
     args = parser.parse_args()
 
     script_dir = Path(__file__).parent
     # logger.setLevel('DEBUG')
     BIN = 'dcm2itk'
+    if args.bin_dir:
+        bin_dir = args.bin_dir
+    else:
+        bin_dir = '/bin'
+
+    BIN = find_binary(bin_dir, 'dcm2itk')
+
 
     root = Path(args.indir)
     outdir = Path(args.outdir)

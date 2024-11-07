@@ -21,14 +21,34 @@ Step 1 and 2 can be omitted if you already have segmented skulls.
 Goal: Create segmentation files (`.nii.gz`) of bone in `data/manual_segmentation`
 
 ## Step 1.1: Initial automated segmentation
+
+### Step 1.1.1
+Convert zipped dicoms to mha format.
+[dcm2itk](https://github.com/ykszk/dcm2itk) command is required.
+
+```shell
+doit task_dcm2mha
+```
+
+- Input: `.zip` files in `data/dicom/HOSPITAL/PATIENT_ID/`
+- Output: `data/mha/HOSPITAL/PATIENT_ID/1.mha`
+
+### Step 1.1.2
+Remove bed from the image
+```shell
+doit remove_bed
+```
+- Input: `data/mha/HOSPITAL/PATIENT_ID/1.mha`
+- Output: `data/mha/HOSPITAL/PATIENT_ID/1_wo_bed.mha`
+
+### Step 1.1.3
+Segment skulls
 ```shell
 doit segment_bone
 ```
 
-Internals:
-- Convert zipped dicoms to mha format
-- Remove bed from the image
-- Segment skulls
+- Input: `data/mha/HOSPITAL/PATIENT_ID/1_wo_bed.mha`
+- Output: `data/mha/HOSPITAL/PATIENT_ID/1_auto_skull.mha`
 
 ## Step 1.2: Manual refinement of segmentation
 Manually correct segmentation errros in `data/*/*/1_auto_skull.mha` files.
@@ -44,6 +64,11 @@ Manually correct segmentation errros in `data/*/*/1_auto_skull.mha` files.
 ## Step 2: Process mesh data
 Goal: Create `.vtp` files in `result/lm_aligned`
 
+Make sure:
+- `cfss/filenames.txt` contains list of filenames of files in `DATA/manual_segmentation`.
+  - Remove lines from the list if you want to exclude files.
+
+### Step 2.1
 ```shell
 doit align_bb
 ```
@@ -57,6 +82,7 @@ Internals:
 - Apply levelset segmentation to fillup empty spaces in the skulls (including cranial cavity) and create mesh files.
 - Align meshes so that the mid points of bounding boxes of align. The alignment is only done by translation.
 
+### Step 2.2
 ```shell
 doit register
 ```
@@ -67,6 +93,7 @@ doit register
 Internals:
 - Perform mesh-to-mesh non-rigid registration
 
+### Step 2.3
 ```shell
 doit align_landmarks
 ```

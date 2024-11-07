@@ -1,5 +1,8 @@
-# %%
 from pathlib import Path
+import numpy as np
+from scipy import ndimage
+import sys
+import argparse
 
 import cc3d
 import tqdm
@@ -7,32 +10,6 @@ import utils
 from joblib import Parallel, delayed
 from logzero import logger
 from szkmipy import mhd
-
-
-# indir = Path('../data/mha/chuh/CHUH0002')
-indir = Path('../data/mha')
-fns = sorted(indir.glob('**/*_wo_bed.mha'))
-# for mha_fn in indir.glob('*_bed.mha'):
-#     fid = mha_fn.name.split('_')[0]
-#     fcsv_fn = mha_fn.parent / f'{fid}.fcsv'
-#     print(mha_fn, fcsv_fn)
-#     d = {}
-#     rows = []
-#     with open(fcsv_fn) as f:
-#         for line in f:
-#             if line.startswith('#'):
-#                 line = line[1:] # remove *
-#                 line = line.strip()
-#                 key_value = line.split(' = ')
-#                 assert len(key_value)==2
-#                 d[key_value[0]] = key_value[1]
-#             else:
-#                 rows.append(line)
-#         df = pd.read_csv(StringIO('\n'.join(rows)), header=None, names=d['columns'].split(','))
-
-# %%
-import numpy as np
-from scipy import ndimage
 
 
 def segment_bone(mha_fn: str, out_fn: str):
@@ -82,12 +59,25 @@ def segment_bone(mha_fn: str, out_fn: str):
     st = ndimage.generate_binary_structure(3, 1)
     filled = ndimage.binary_fill_holes(f2d, structure=st)
 
+
     mhd.write(out_fn, filled, h)
 
+def main():
+    parser = argparse.ArgumentParser(
+        description='Segment bone.')
+    parser.add_argument('input', help='Input directory')
 
-args = [(str(fn), str(fn.parent / '{}_auto_skull.mha'.format(fn.stem.replace('_wo_bed', '')))) for fn in fns]
+    args = parser.parse_args()
+    indir = Path(args.input)
+    fns = sorted(indir.glob('**/*_wo_bed.mha'))
 
 
-logger.info('start')
-Parallel(n_jobs=4)(delayed(segment_bone)(*arg) for arg in tqdm.tqdm(args))
-logger.info('done')
+    args = [(str(fn), str(fn.parent / '{}_auto_skull.mha'.format(fn.stem.replace('_wo_bed', '')))) for fn in fns]
+
+
+    logger.info('start')
+    Parallel(n_jobs=4)(delayed(segment_bone)(*arg) for arg in tqdm.tqdm(args))
+    logger.info('done')
+
+if __name__ == '__main__':
+    sys.exit(main())
