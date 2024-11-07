@@ -27,7 +27,7 @@ Convert zipped dicoms to mha format.
 [dcm2itk](https://github.com/ykszk/dcm2itk) command is required.
 
 ```shell
-doit task_dcm2mha
+doit dcm2mha
 ```
 
 - Input: `.zip` files in `data/dicom/HOSPITAL/PATIENT_ID/`
